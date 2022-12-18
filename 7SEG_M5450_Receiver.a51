@@ -10,9 +10,10 @@ eemen EQU 00001000b
 eemwe EQU 00010000b
 eeld  EQU 00100000b
 
-DataEnable bit P1.0
-DataIn  bit P1.1
-Clock bit P1.2
+DataIn  bit P1.0
+Clock bit P1.1
+DataIn_1  bit P1.2    ;Second M5450
+Clock_1 bit P1.3
 
 llPort EQU P2
 ScanPort EQU P2
@@ -32,8 +33,9 @@ Row EQU R2
 ;Variablen Deklaration
 DSEG AT 48  
 msgRam : DS 32
-driverRam : DS 4
-_400Hz_Teiler : DS 1
+driverRam : DS 8
+driverRamTemp : DS 4
+_200Hz_Teiler : DS 1
 
 bitCtr : DS 1
 copyCtr : DS 1
@@ -47,7 +49,7 @@ answerToPC : DS 1
 inBuf : DS 10 ;1 AddrField  +   8Digits +  1ETB
 
 BSEG AT 0 
-_400Hz : DBIT 1
+_200Hz : DBIT 1
 
 blink : DBIT 1 
 llDirection : DBIT 1
@@ -81,9 +83,9 @@ RETI
                               
 TIMER0_ISR: ;Timer 0 Interrupt
 ;3900KHz @12MHZ; 3600KHz @11MHz
-djnz _400Hz_Teiler, Retii     ;400Hz Teiler
-mov _400Hz_Teiler, #8
-setb _400Hz          
+djnz _200Hz_Teiler, Retii     ;200Hz Teiler
+mov _200Hz_Teiler, #18
+setb _200Hz          
 
 Retii:
 RETI
@@ -94,7 +96,6 @@ $include (uart.a51)
 $include (time.a51)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                     
 startup: 
-clr DataEnable
 mov ScanPort, #0
 mov SP, #Stack 
 
@@ -113,9 +114,9 @@ LoadByte:
         xrl eecon, #eemen ;eeprom auschalten           
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-mov row,#00000001b    ;row1
-mov _400Hz_Teiler, #9
-clr  _400Hz 
+mov row,#11h    ;row1
+mov _200Hz_Teiler, #18
+clr  _200Hz 
 
 lcall PrepareDataReception 
 lcall init_uart_intr
@@ -141,8 +142,8 @@ lcall init_uart_intr
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;MAIN LOOP
 LOOP:
-jnb _400Hz, Loop
-clr _400Hz
+jnb _200Hz, Loop
+clr _200Hz
 lcall Display
 sjmp Loop
 
@@ -152,75 +153,105 @@ sjmp Loop
 ;Hier muessen 35 Bit herausgeschoben werden + 1 Bit fuer den Start
 Display:
 anl ScanPort, #00000000b
-cjne row, #1, checkRow1
-mov driverRam+0, msgRam+0
-mov driverRam+1, msgRam+8
-mov driverRam+2, msgRam+16
-mov driverRam+3, msgRam+24
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;0
+cjne row, #11h, checkRow1
+mov driverRamTemp+0, msgRam+0
+mov driverRamTemp+1, msgRam+4
+mov driverRamTemp+2, msgRam+8
+mov driverRamTemp+3, msgRam+12
 lcall getPat
-ljmp M5450
+mov driverRam+0, driverRamTemp+0
+mov driverRam+1, driverRamTemp+1
+mov driverRam+2, driverRamTemp+2
+mov driverRam+3, driverRamTemp+3
 
+mov driverRamTemp+0, msgRam+16
+mov driverRamTemp+1, msgRam+20
+mov driverRamTemp+2, msgRam+24
+mov driverRamTemp+3, msgRam+28
+lcall getPat
+mov driverRam+4, driverRamTemp+0
+mov driverRam+5, driverRamTemp+1
+mov driverRam+6, driverRamTemp+2
+mov driverRam+7, driverRamTemp+3
+LJMP M5450
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1
 checkRow1:
-cjne row, #2, checkRow2
-mov driverRam+0, msgRam+1
-mov driverRam+1, msgRam+9
-mov driverRam+2, msgRam+17
-mov driverRam+3, msgRam+25
+cjne row, #22h, checkRow2
+mov driverRamTemp+0, msgRam+1
+mov driverRamTemp+1, msgRam+5
+mov driverRamTemp+2, msgRam+9
+mov driverRamTemp+3, msgRam+13
 lcall getPat
-ljmp M5450
+mov driverRam+0, driverRamTemp+0
+mov driverRam+1, driverRamTemp+1
+mov driverRam+2, driverRamTemp+2
+mov driverRam+3, driverRamTemp+3
 
+mov driverRamTemp+0, msgRam+17
+mov driverRamTemp+1, msgRam+21
+mov driverRamTemp+2, msgRam+25
+mov driverRamTemp+3, msgRam+29
+lcall getPat
+mov driverRam+4, driverRamTemp+0
+mov driverRam+5, driverRamTemp+1
+mov driverRam+6, driverRamTemp+2
+mov driverRam+7, driverRamTemp+3
+LJMP M5450
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2
 checkRow2:
-cjne row, #4, checkRow3
-mov driverRam+0, msgRam+2
-mov driverRam+1, msgRam+10
-mov driverRam+2, msgRam+18
-mov driverRam+3, msgRam+26
+cjne row, #44h, checkRow3
+mov driverRamTemp+0, msgRam+2
+mov driverRamTemp+1, msgRam+6
+mov driverRamTemp+2, msgRam+10
+mov driverRamTemp+3, msgRam+14
 lcall getPat
-ljmp M5450
+mov driverRam+0, driverRamTemp+0
+mov driverRam+1, driverRamTemp+1
+mov driverRam+2, driverRamTemp+2
+mov driverRam+3, driverRamTemp+3
 
+mov driverRamTemp+0, msgRam+18
+mov driverRamTemp+1, msgRam+22
+mov driverRamTemp+2, msgRam+26
+mov driverRamTemp+3, msgRam+30
+lcall getPat
+mov driverRam+4, driverRamTemp+0
+mov driverRam+5, driverRamTemp+1
+mov driverRam+6, driverRamTemp+2
+mov driverRam+7, driverRamTemp+3
+LJMP M5450
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3
 checkRow3:
-cjne row, #8, checkRow4
-mov driverRam+0, msgRam+3
-mov driverRam+1, msgRam+11
-mov driverRam+2, msgRam+19
-mov driverRam+3, msgRam+27
+cjne row, #88h, DisplayExit
+mov driverRamTemp+0, msgRam+3
+mov driverRamTemp+1, msgRam+7
+mov driverRamTemp+2, msgRam+11
+mov driverRamTemp+3, msgRam+15
 lcall getPat
-ljmp M5450
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-checkRow4:
-cjne row, #16, checkRow5
-mov driverRam+0, msgRam+4
-mov driverRam+1, msgRam+12
-mov driverRam+2, msgRam+20
-mov driverRam+3, msgRam+28
-lcall getPat
-ljmp M5450
+mov driverRam+0, driverRamTemp+0
+mov driverRam+1, driverRamTemp+1
+mov driverRam+2, driverRamTemp+2
+mov driverRam+3, driverRamTemp+3
 
-checkRow5:
-cjne row, #32, checkRow6
-mov driverRam+0, msgRam+5
-mov driverRam+1, msgRam+13
-mov driverRam+2, msgRam+21
-mov driverRam+3, msgRam+29
+mov driverRamTemp+0, msgRam+19
+mov driverRamTemp+1, msgRam+23
+mov driverRamTemp+2, msgRam+27
+mov driverRamTemp+3, msgRam+31
 lcall getPat
-ljmp M5450
+mov driverRam+4, driverRamTemp+0
+mov driverRam+5, driverRamTemp+1
+mov driverRam+6, driverRamTemp+2
+mov driverRam+7, driverRamTemp+3
 
-checkRow6:
-cjne row, #64, checkRow7
-mov driverRam+0, msgRam+6
-mov driverRam+1, msgRam+14
-mov driverRam+2, msgRam+22
-mov driverRam+3, msgRam+30
-lcall getPat
-ljmp M5450
 
-checkRow7:
-cjne row, #128, DisplayExit
-mov driverRam+0, msgRam+7
-mov driverRam+1, msgRam+15
-mov driverRam+2, msgRam+23
-mov driverRam+3, msgRam+31
-lcall getPat
+LJMP M5450
+
+DisplayExit:
+RET
 ;;;;;;;;;;;;;;;************************************************
 M5450:
 
@@ -247,15 +278,38 @@ lcall OutputData
 
 mov bitCtr, #3  ;Ist egal was hier steht (in DPTR)                                                                             
 lcall OutputData
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,,,
+clr clock_1
+setb DataIN_1 ;Startbit  wird reingecklockt
+setb clock_1 
+clr clock_1
+
+mov A, driverRam+4
+mov bitCtr, #8
+lcall OutputData_1
+
+mov A, driverRam+5
+mov bitCtr, #8
+lcall OutputData_1
+
+mov A, driverRam+6
+mov bitCtr, #8
+lcall OutputData_1
+
+mov A, driverRam+7
+mov bitCtr, #8
+lcall OutputData_1
+
+mov bitCtr, #3  ;Ist egal was hier steht (in DPTR)                                                                             
+lcall OutputData_1
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,,,
 mov A, row
-orl ScanPort, A
+orl ScanPort, A 
 rl A
 mov row, A 
-
-cjne A, #00000001b, DisplayExit
-mov row, #00000001b
-DisplayExit:
 RET
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -267,92 +321,100 @@ clr clock      ;Takt Ende
 djnz bitCtr, OutputData
 RET
 
+OutputData_1:
+rlc A
+mov dataIN_1, C
+setb clock_1      ;Takt Begin
+clr clock_1      ;Takt Ende
+djnz bitCtr, OutputData_1
+RET
+
 ;******************************************************************************
 getPat:
-mov A, driverRam+0 
+mov A, driverRamTemp+0 
 mov KommaChecker, A
 anl A, #00001111b
 add A, #_7Seg_Table-$-3
 movc a, @a+pc
-mov driverRam+0, A 
+mov driverRamTemp+0, A 
 
 mov A, KommaChecker
 jnb ACC.5, LoadPat0
 jnb blink, LoadPat0
-mov driverRam+0, #0
+mov driverRamTemp+0, #0         
 ljmp GetPat1
 LoadPat0:
 jnb ACC.4, getPat1
-mov A, driverRam+0
+mov A, driverRamTemp+0
 setb ACC.0
-mov driverRam+0, A
+mov driverRamTemp+0, A
 
 GetPat1:
-mov A, driverRam+1 
+mov A, driverRamTemp+1 
 mov KommaChecker, A
 anl A, #00001111b  
 add A, #_7Seg_Table-$-3
 movc a, @a+pc
-mov driverRam+1, A  
+mov driverRamTemp+1, A  
 
 mov A, KommaChecker
 jnb ACC.5, LoadPat1
 jnb blink, LoadPat1
-mov driverRam+1, #0
+mov driverRamTemp+1, #0
 ljmp GetPat2
 
 LoadPat1:
 jnb ACC.4, getPat2
-mov A, driverRam+1
+mov A, driverRamTemp+1
 setb ACC.0
-mov driverRam+1, A
+mov driverRamTemp+1, A
 
 GetPat2:
-mov A, driverRam+2  
+mov A, driverRamTemp+2  
 mov KommaChecker, A
 anl A, #00001111b
 add A, #_7Seg_Table-$-3
 movc a, @a+pc 
-mov driverRam+2, A 
+mov driverRamTemp+2, A 
 
 mov A, KommaChecker
 jnb ACC.5, LoadPat2
 jnb blink, LoadPat2
-mov driverRam+2, #0
+mov driverRamTemp+2, #0
 ljmp GetPat3
 
 LoadPat2:
 jnb ACC.4, getPat3
-mov A, driverRam+2
+mov A, driverRamTemp+2
 setb ACC.0
-mov driverRam+2, A
+mov driverRamTemp+2, A
 
 GetPat3:
-mov A, driverRam+3 
+mov A, driverRamTemp+3 
 mov KommaChecker, A
 anl A, #00001111b
 add A, #_7Seg_Table-$-3
 movc a, @a+pc 
-mov driverRam+3, A 
+mov driverRamTemp+3, A 
 
 mov A, KommaChecker
 jnb ACC.5, LoadPat3
 jnb blink, LoadPat3
-mov driverRam+3, #0
+mov driverRamTemp+3, #0
 ljmp GetPatExit
 
 LoadPat3:
 jnb ACC.4, getPatExit
-mov A, driverRam+3
+mov A, driverRamTemp+3
 setb ACC.0
-mov driverRam+3, A
+mov driverRamTemp+3, A
 
 getPatExit:
-cjne row, #01000000b, getPatExit1 
+cjne row, #44h, getPatExit1 
 mov A, msgRam+6
 cjne A, #10, getPatExit1  
-mov driverRam+1, _7segMuster+1
-mov driverRam+2, _7segMuster+0
+mov driverRamTemp+1, _7segMuster+1
+mov driverRamTemp+2, _7segMuster+0
 
 getPatExit1:
 RET     
@@ -413,6 +475,33 @@ lcall OutputData
 mov bitCtr, #3  ;Ist egal was hier steht (in DPTR)                                                                             
 lcall OutputData
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,,,
+clr clock_1
+setb DataIN_1 ;Startbit  wird reingecklockt
+setb clock_1 
+clr clock_1
+
+mov A, animChar
+mov bitCtr, #8
+lcall OutputData_1
+
+mov A, animChar
+mov bitCtr, #8
+lcall OutputData_1
+
+mov A, animChar
+mov bitCtr, #8
+lcall OutputData_1
+
+mov A, animChar
+mov bitCtr, #8
+lcall OutputData_1
+
+mov bitCtr, #3  ;Ist egal was hier steht (in DPTR)                                                                             
+lcall OutputData_1
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 mov ScanPort, #0FFh
 mov A, #100
 lcall F_wait_m
